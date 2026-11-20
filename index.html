@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>スタメンシミュレーター</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{--bg:#f5f6f8;--cd:#fff;--tx:#14181f;--sb:#5b6472;--ln:#dfe3ea;--ac:#0b5fff;--ok:#15803d;--ng:#b91c1c;--on:#e8f0ff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1218;--cd:#1a1f29;--tx:#e8ebf0;--sb:#98a2b3;--ln:#2c3340;--ac:#6ea0ff;--ok:#4ade80;--ng:#f87171;--on:#1d2a44}}
+:root[data-theme="dark"]{--bg:#0f1218;--cd:#1a1f29;--tx:#e8ebf0;--sb:#98a2b3;--ln:#2c3340;--ac:#6ea0ff;--ok:#4ade80;--ng:#f87171;--on:#1d2a44}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif}
+#a{max-width:520px;margin:0 auto;padding:12px 12px 110px}
+h1{font-size:18px;margin:4px 0 8px}h2{font-size:16px;margin:14px 0 6px}
+.s{color:var(--sb);font-size:12px}.c{background:var(--cd);border:1px solid var(--ln);border-radius:12px;padding:10px 12px;margin:8px 0}
+.bar{height:6px;background:var(--ln);border-radius:3px;overflow:hidden;margin:6px 0}.bar b{display:block;height:100%;background:var(--ac)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button{font:inherit;border:1px solid var(--ln);background:var(--cd);color:var(--tx);border-radius:10px;padding:10px;cursor:pointer}
+button.p{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:700}button:disabled{opacity:.4;cursor:default}.wide{width:100%;margin-top:8px}
+input{width:100%;padding:10px;border:1px solid var(--ln);border-radius:8px;background:var(--cd);color:var(--tx);font:inherit;margin:6px 0}
+.tm{text-align:center;font-weight:700}.tm small{display:block;font-weight:400;color:var(--sb);font-size:11px}
+.card{background:var(--cd);border:1px solid var(--ln);border-radius:12px;padding:10px 12px;margin:8px 0}.card.on{border-color:var(--ac);background:var(--on)}
+.h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.h b{font-size:16px}
+.bt{margin-top:4px;font-size:13px}.df{margin-top:4px;font-size:12px;color:var(--sb)}.df i{font-style:normal;color:var(--tx);font-weight:700}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.chips button{padding:4px 10px;font-size:12px;border-radius:14px}.chips button.on,.ord button.on,.pos button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.ord{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin:4px 0}.ord button{padding:8px 0}
+.pos{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:4px 0}.pos button{padding:8px 0;font-size:13px}
+.dice{font-size:22px;font-weight:800;text-align:center;padding:10px 0}.ng{color:var(--ng)}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:5px 3px;border-bottom:1px solid var(--ln);text-align:left;white-space:nowrap}th{color:var(--sb);font-weight:400;font-size:11px}.sc{overflow-x:auto}
+.bb{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--ln);padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px))}.bb div{max-width:520px;margin:0 auto;display:flex;gap:8px}.bb button{flex:1}
+textarea{width:100%;height:140px;font:12px/1.4 monospace;background:var(--cd);color:var(--tx);border:1px solid var(--ln);border-radius:8px}
+.big{font-size:34px;font-weight:800;text-align:center}
+</style></head><body><div id="a"></div>
+<script>
+const TM={神:'阪神',デ:'DeNA',巨:'巨人',中:'中日',広:'広島',ヤ:'ヤクルト',ソ:'ソフトバンク',日:'日本ハム',オ:'オリックス',楽:'楽天',西:'西武',ロ:'ロッテ'},
+POS=['C','1B','2B','3B','SS','LF','CF','RF','DH'],PN={C:'捕手','1B':'一塁手','2B':'二塁手','3B':'三塁手',SS:'遊撃手',LF:'左翼手',CF:'中堅手',RF:'右翼手',DH:'指名打者'},PS={C:'捕','1B':'一','2B':'二','3B':'三',SS:'遊',LF:'左',CF:'中',RF:'右',DH:'DH'},ROLES=['代打','守備固め','代走'];
+/* 2026年シーズンの選手データ: 名前|球団|試合|打席|打数|安打|本塁打|打点|盗塁|四球|三振|長打率|守備(位置:先発/途中) */
+const RAW=`坂本誠志郎|神|97|319|279|55|10|36|2|25|98|.337|C:81/13
+伏見寅威|神|54|149|131|29|0|16|0|9|28|.252|C:40/7
+梅野隆太郎|神|27|83|73|16|1|4|2|4|22|.288|C:22/5
+榮枝裕貴|神|2|1|1|0|0|0|0|0|1|.000|C:0/2
+大山悠輔|神|141|591|512|146|20|85|0|61|88|.455|1B:140/1
+糸原健斗|神|21|20|20|1|0|0|0|0|6|.100|1B:0/3,DH:0/1
+中野拓夢|神|143|581|508|146|0|23|9|39|83|.321|2B:128/2
+谷端将伍|神|1|3|2|0|0|0|0|0|0|.000|2B:1/0
+佐藤輝明|神|143|614|539|165|39|106|8|68|164|.609|3B:125/0,RF:18/0
+立石正広|神|38|127|125|24|2|10|1|2|41|.256|2B:0/1,3B:16/2,LF:13/0
+元山飛優|神|57|186|154|37|0|7|3|19|38|.253|2B:0/1,3B:0/2,SS:47/1
+熊谷敬宥|神|80|181|166|35|0|13|6|6|48|.247|1B:0/7,2B:4/4,SS:39/14,LF:0/5
+木浪聖也|神|64|163|152|32|1|17|2|9|41|.250|1B:2/0,2B:2/0,3B:2/2,SS:29/2
+小幡竜平|神|40|113|102|21|0|4|1|6|38|.245|SS:28/10
+前川右京|神|76|214|188|41|5|20|0|19|45|.356|LF:48/4,DH:4/0
+福島圭音|神|71|154|136|31|0|4|7|10|27|.287|LF:17/9,CF:6/1,RF:0/2,DH:1/1
+中川勇斗|神|10|25|19|1|0|2|0|5|3|.105|LF:6/0
+ガルシア|神|19|35|31|4|2|7|0|2|16|.355|1B:1/0,LF:5/0
+岡城快生|神|15|34|33|5|0|1|0|0|11|.212|LF:5/0,CF:4/0
+濱田太貴|神|19|27|25|4|1|2|0|2|12|.280|LF:3/0
+小野寺暖|神|26|19|18|2|0|1|0|1|8|.111|1B:0/3,LF:1/10,CF:1/4,RF:0/3
+植田海|神|29|6|3|1|0|1|7|3|0|.333|2B:0/3,LF:0/6
+近本光司|神|90|414|372|114|5|17|12|40|53|.392|CF:90/0
+髙寺望夢|神|128|385|334|73|3|24|12|40|79|.281|2B:8/3,LF:26/29,CF:42/2,RF:2/1
+森下翔太|神|143|616|521|152|35|84|3|71|95|.557|LF:18/0,RF:123/2
+嶋村麟士朗|神|30|41|41|8|1|5|0|0|14|.268|C:0/7,DH:3/0
+ディベイニー|神|10|15|14|1|0|0|0|1|4|.071|LF:1/0,DH:1/1
+松尾汐恩|デ|89|300|274|68|4|19|1|20|34|.350|C:73/7
+戸柱恭孝|デ|42|110|102|22|1|8|1|7|20|.304|C:29/6
+古市尊|デ|27|72|64|23|1|5|0|5|10|.469|C:17/7
+佐野恵太|デ|129|522|469|123|8|55|0|52|74|.382|1B:95/4,LF:20/1,DH:1/0
+牧秀悟|デ|108|474|420|119|30|75|2|41|85|.564|2B:105/0,DH:1/0
+小田康一郎|デ|6|11|10|0|0|0|0|1|5|.000|2B:1/0,3B:1/0
+宮﨑敏郎|デ|111|381|335|85|11|44|0|36|47|.391|3B:85/0,DH:4/0
+筒香嘉智|デ|99|398|339|88|20|49|0|55|103|.484|1B:41/0,3B:47/0,DH:2/1
+宮下朝陽|デ|71|223|209|54|8|26|3|13|54|.411|2B:0/1,3B:1/0,SS:53/7
+林琢真|デ|75|195|173|37|2|21|6|15|39|.324|2B:15/3,3B:1/6,SS:29/1
+京田陽太|デ|51|127|118|26|1|11|1|4|26|.280|2B:2/1,3B:0/1,SS:25/9
+石上泰輝|デ|33|92|82|16|0|4|1|5|20|.268|SS:25/5
+成瀬脩人|デ|28|73|69|18|0|8|0|2|20|.304|2B:7/4,3B:0/2,SS:10/0
+柴田竜拓|デ|47|15|11|1|0|1|0|0|2|.091|3B:0/45,SS:1/0
+度会隆輝|デ|134|516|471|129|9|51|6|34|73|.380|3B:8/1,LF:63/2,RF:39/4
+勝又温史|デ|106|357|336|95|4|33|3|13|59|.351|LF:55/2,CF:16/0,RF:8/0
+蝦名達夫|デ|104|385|346|83|5|27|6|20|88|.341|CF:84/3,RF:4/5
+三森大貴|デ|71|140|132|31|0|9|16|7|33|.265|1B:0/3,2B:13/9,CF:18/16
+梶原昂希|デ|28|73|64|13|1|5|2|6|18|.328|CF:16/1,RF:0/1
+関根大気|デ|7|21|21|4|0|2|0|0|1|.238|CF:4/2
+森敬斗|デ|3|12|12|3|0|2|0|0|3|.333|CF:3/0
+神里和毅|デ|66|24|20|2|0|1|1|3|10|.200|LF:0/10,CF:1/41,RF:0/9
+エンカーナシオン|デ|64|252|239|70|11|39|1|11|50|.494|RF:58/1
+ヒュンメル|デ|59|148|129|27|5|18|0|15|49|.364|LF:5/0,RF:25/1,DH:1/1
+井上朋也|デ|22|47|44|9|2|6|0|3|19|.364|1B:3/0,CF:1/0,RF:8/1
+九鬼隆平|デ|9|9|9|2|0|0|0|0|4|.333|1B:0/2,RF:1/0
+大城卓三|巨|112|384|342|89|10|43|0|34|108|.424|C:86/5,1B:3/0,DH:5/0
+岸田行倫|巨|58|201|180|43|4|15|0|12|37|.328|C:46/5,1B:1/0,DH:2/0
+山瀬慎之助|巨|10|20|20|4|1|2|0|0|9|.400|C:5/4
+小林誠司|巨|20|15|13|1|0|0|0|2|6|.154|C:3/17
+甲斐拓也|巨|13|22|20|2|2|2|0|1|7|.400|C:3/5
+ダルベック|巨|135|543|492|124|25|81|0|44|181|.457|1B:89/1,3B:41/0,DH:1/0
+増田陸|巨|63|176|165|39|6|16|1|7|45|.382|1B:39/13,2B:2/3
+ティマ|巨|14|33|33|3|0|0|0|0|11|.091|1B:9/4
+浦田俊輔|巨|118|474|420|114|0|27|36|32|59|.310|2B:86/2,3B:15/0,SS:11/0
+吉川尚輝|巨|52|192|174|42|1|11|6|15|29|.282|2B:47/3,3B:0/1
+門脇誠|巨|71|69|61|10|0|5|3|5|12|.230|2B:7/8,3B:5/41,SS:0/3
+宇都宮葵星|巨|6|2|2|1|0|0|0|0|0|.500|2B:0/1,RF:0/1
+坂本勇人|巨|67|173|154|27|5|19|0|18|44|.305|3B:38/6
+石塚裕惺|巨|49|134|116|25|0|9|0|13|27|.284|3B:28/4,SS:2/0
+リチャード|巨|14|41|34|6|3|7|0|4|16|.471|1B:1/2,3B:11/0
+湯浅大|巨|4|2|2|0|0|0|0|0|2|.000|3B:0/2
+泉口友汰|巨|129|524|454|120|8|49|9|54|64|.383|SS:122/6
+小濱佑斗|巨|31|59|55|11|1|9|0|4|12|.309|1B:1/1,2B:1/1,3B:4/10,SS:8/2
+松本剛|巨|130|464|419|115|3|25|17|26|60|.337|LF:55/8,CF:40/15,RF:7/0
+丸佳浩|巨|74|145|123|27|3|21|1|22|26|.350|LF:13/1,RF:12/1
+浅野翔吾|巨|9|28|27|5|1|1|0|1|6|.333|LF:6/0,CF:2/0
+佐々木俊輔|巨|123|385|348|88|10|39|9|29|85|.399|LF:13/4,CF:47/12,RF:27/11
+キャベッジ|巨|103|370|345|81|13|29|4|21|119|.394|LF:44/0,CF:47/4,DH:1/0
+鈴木大和|巨|12|22|19|5|0|5|1|1|4|.316|LF:2/1,CF:3/3
+中山礼都|巨|60|157|141|27|2|16|3|13|26|.270|LF:3/0,RF:31/10,DH:0/1
+平山功太|巨|40|129|121|30|3|11|5|6|27|.388|LF:0/2,CF:4/0,RF:28/0
+笹原操希|巨|45|106|99|21|2|15|1|6|31|.354|LF:4/1,RF:22/10
+知念大成|巨|15|29|29|8|0|2|0|0|4|.310|LF:0/1,RF:6/1
+皆川岳飛|巨|15|20|19|3|0|0|0|1|7|.158|LF:1/3,RF:3/2
+増田大輝|巨|34|19|16|4|0|0|2|0|5|.250|1B:0/9,3B:1/0,LF:0/4,CF:0/10,RF:2/1
+石伊雄太|中|112|397|360|95|7|31|0|19|91|.383|C:101/11
+加藤匠馬|中|35|77|68|10|0|2|1|5|25|.176|C:24/11
+木下拓哉|中|27|67|64|17|0|3|0|1|12|.312|C:18/5
+味谷大誠|中|4|4|4|1|0|0|0|0|1|.250|C:0/4
+石橋康太|中|4|3|3|0|0|0|0|0|2|.000|C:0/2
+サノー|中|95|358|318|70|23|52|0|33|97|.462|1B:84/0,DH:5/0
+阿部寿樹|中|76|143|118|30|3|23|0|22|38|.381|1B:20/1,DH:1/0
+田中幹也|中|84|254|220|53|1|12|9|17|26|.309|2B:60/16,SS:3/1
+福永裕基|中|114|442|400|112|10|34|15|33|76|.403|1B:0/3,2B:60/0,3B:35/3,DH:2/1
+山本泰寛|中|33|80|69|12|1|4|0|7|18|.232|2B:11/3,3B:1/6,SS:5/1
+樋口正修|中|26|13|10|2|0|1|6|2|3|.200|2B:1/4,LF:0/8,CF:0/1,RF:0/2
+石川昂弥|中|103|389|354|88|11|42|1|30|68|.398|1B:6/2,3B:90/1
+高橋周平|中|60|121|108|27|0|5|0|11|37|.287|1B:5/5,3B:13/1
+森駿太|中|3|7|7|1|1|3|0|0|2|.571|3B:1/2
+村松開人|中|126|530|446|115|6|43|4|62|85|.359|SS:124/2
+土田龍空|中|49|72|65|11|2|6|0|5|17|.292|2B:3/7,3B:0/1,SS:7/5,LF:0/8,CF:6/6,RF:0/1
+ロドリゲス|中|5|11|10|0|0|0|0|1|4|.000|3B:0/1,SS:3/1
+細川成也|中|143|604|499|113|25|71|3|92|155|.417|LF:142/0,DH:1/0
+岡林勇希|中|90|345|308|71|3|19|2|27|40|.299|CF:75/7,RF:3/0
+花田旭|中|47|159|149|36|4|12|1|8|45|.396|LF:0/4,CF:30/3,RF:9/0
+大島洋平|中|21|66|62|12|0|2|1|4|13|.242|CF:15/3
+ボスラー|中|88|271|251|47|8|20|0|15|77|.319|1B:26/2,3B:3/0,RF:33/1
+鵜飼航丞|中|54|175|166|39|5|22|1|7|49|.361|LF:0/1,CF:11/0,RF:32/3
+板山祐太郎|中|78|202|183|43|6|24|1|17|49|.404|1B:2/5,2B:6/3,3B:0/1,LF:1/5,CF:3/0,RF:30/7
+上林誠知|中|25|66|61|14|2|4|2|5|20|.361|CF:3/0,RF:12/9
+カリステ|中|26|67|61|12|1|3|1|6|20|.279|RF:12/4
+福元悠真|中|21|37|36|11|0|5|0|0|3|.361|LF:0/1,RF:8/2
+持丸泰輝|広|102|299|246|45|6|18|0|41|77|.280|C:76/23
+石原貴規|広|70|155|141|28|1|8|0|10|41|.248|C:50/20
+清水叶人|広|2|4|3|0|0|0|0|1|2|.000|C:1/1
+モンテロ|広|124|334|293|68|13|42|0|36|78|.406|1B:66/5,DH:7/1
+佐藤啓介|広|70|150|138|28|5|16|1|10|32|.312|1B:16/0,2B:0/1,LF:12/0
+菊池涼介|広|133|540|466|109|7|39|3|48|103|.330|2B:125/5
+坂倉将吾|広|140|576|505|127|15|74|3|62|117|.390|C:16/0,1B:56/1,3B:65/0
+佐々木泰|広|121|421|389|99|6|26|3|27|55|.337|1B:4/1,3B:57/2,LF:11/1,RF:31/0
+勝田成|広|109|295|256|52|0|10|5|21|49|.238|2B:17/11,SS:52/14
+西川篤夢|広|8|7|7|1|0|0|0|0|1|.143|SS:1/3
+ファビアン|広|102|364|327|73|16|37|0|23|68|.407|LF:83/6
+秋山翔吾|広|76|195|185|51|3|16|0|6|23|.373|LF:16/3,CF:8/1,RF:14/0
+林晃汰|広|11|20|18|1|0|2|1|2|5|.056|1B:1/0,LF:2/0,DH:1/0
+大盛穂|広|120|348|324|72|6|23|12|14|92|.327|CF:74/39,RF:0/1
+平川蓮|広|29|109|102|19|1|11|0|5|36|.255|CF:21/0,RF:4/2,DH:0/1
+中村奨成|広|58|194|174|42|4|13|0|12|23|.374|LF:9/4,CF:18/1,RF:16/7
+名原典彦|広|83|285|267|66|3|16|6|12|44|.341|LF:3/3,CF:22/1,RF:35/13
+野間峻祥|広|54|109|94|19|0|4|4|12|17|.223|LF:2/1,CF:0/1,RF:17/6
+末包昇大|広|16|56|52|8|2|5|0|4|17|.288|RF:15/0
+二俣翔一|広|48|69|60|11|1|5|0|5|25|.283|2B:0/1,3B:0/5,SS:1/14,LF:1/5,RF:8/4
+辰見鴻之介|広|71|25|22|3|0|2|28|1|9|.182|1B:0/1,2B:1/0,3B:0/4,LF:1/8,CF:0/1,RF:3/4
+久保修|広|23|9|8|1|0|0|1|1|4|.125|LF:0/4,RF:0/11
+古賀優大|ヤ|91|337|313|81|1|33|2|9|28|.310|C:82/4
+鈴木叶|ヤ|47|150|146|28|2|15|2|4|37|.288|C:34/9
+中村悠平|ヤ|32|65|58|11|0|1|0|4|5|.276|C:15/6
+松本直樹|ヤ|16|38|34|9|0|5|0|3|7|.353|C:10/5
+矢野泰二郎|ヤ|7|5|4|1|0|0|0|1|0|.250|C:1/5
+柿沼友哉|ヤ|1|2|2|0|0|0|0|0|2|.000|C:1/0
+オスナ|ヤ|78|283|259|57|8|29|0|22|51|.355|1B:68/3
+山田哲人|ヤ|30|60|56|15|2|6|0|4|8|.393|1B:14/0
+宮本丈|ヤ|49|80|72|21|1|8|1|4|16|.403|1B:11/6,LF:1/1
+澤井廉|ヤ|21|51|47|9|1|2|0|2|16|.319|1B:8/2,RF:3/1
+茂木栄五郎|ヤ|24|40|31|7|0|2|0|7|9|.258|1B:6/15
+北村恵吾|ヤ|8|13|13|1|0|1|0|0|5|.077|1B:2/1,3B:0/2
+内山壮真|ヤ|94|348|307|71|5|26|3|38|65|.332|2B:79/9,3B:2/0,DH:0/1
+伊藤琉偉|ヤ|78|146|128|20|2|8|2|14|43|.227|2B:23/17,3B:4/2,SS:9/16,DH:0/1
+武岡龍世|ヤ|98|291|265|59|4|27|1|23|74|.328|2B:12/2,3B:51/22,SS:6/1
+赤羽由紘|ヤ|109|326|290|70|6|30|9|31|96|.352|1B:17/16,2B:14/0,3B:41/1,LF:2/15
+松下歩叶|ヤ|38|116|109|26|2|11|1|4|34|.330|2B:0/1,3B:29/5
+田中陽翔|ヤ|37|101|94|21|2|9|1|6|34|.309|2B:10/0,3B:11/4,SS:1/0
+長岡秀樹|ヤ|126|533|480|119|8|39|5|43|72|.350|2B:1/0,SS:120/1
+石井巧|ヤ|28|65|57|9|1|2|1|7|19|.246|2B:4/2,3B:4/3,SS:7/1
+サンタナ|ヤ|126|447|378|95|17|45|0|63|119|.455|LF:108/0,DH:8/0
+西村瑠伊斗|ヤ|41|113|105|29|1|15|0|7|31|.371|LF:18/10,CF:1/1,RF:2/0
+岩田幸宏|ヤ|127|456|422|108|1|26|39|23|81|.291|LF:3/5,CF:103/14
+モンテル|ヤ|53|103|97|27|3|9|7|5|19|.433|CF:18/10,RF:4/17
+並木秀尊|ヤ|38|82|78|19|1|3|13|1|11|.308|LF:1/15,CF:12/1,RF:3/3
+増田珠|ヤ|123|445|403|118|9|40|4|33|74|.392|1B:3/1,LF:10/3,RF:92/3
+丸山和郁|ヤ|54|136|125|41|4|14|6|10|21|.496|CF:9/1,RF:21/19
+塩見泰隆|ヤ|38|87|80|14|2|5|1|6|29|.287|RF:15/8,DH:1/0
+橋本星哉|ヤ|13|16|14|2|0|1|0|1|3|.214|LF:0/2,RF:2/0
+モイセエフニキータ|ヤ|4|6|4|0|0|0|0|2|1|.000|RF:1/0
+海野隆司|ソ|88|271|228|45|1|15|0|20|69|.259|C:77/11
+山本祐大|ソ|55|209|191|51|6|41|0|10|37|.424|C:51/2
+渡邉陸|ソ|17|41|36|8|1|2|0|5|12|.417|C:10/6,DH:0/1
+藤田悠太郎|ソ|1||||||||||C:0/1
+正木智也|ソ|101|478|409|112|28|59|0|60|89|.516|1B:51/0,LF:11/0,CF:1/0,RF:38/0
+山川穂高|ソ|58|212|180|32|11|28|0|28|60|.378|1B:48/0,DH:5/1
+廣瀨隆太|ソ|32|100|84|19|1|11|0|12|31|.333|1B:24/4,2B:0/2
+石塚綜一郎|ソ|7|23|20|5|0|3|0|2|7|.400|1B:5/1,LF:1/0
+ダウンズ|ソ|8|12|12|1|0|0|1|0|5|.083|1B:2/0,DH:1/3
+髙橋隆慶|ソ|4|6|6|2|1|1|0|0|4|.833|1B:1/0,3B:0/1
+牧原大成|ソ|135|511|467|140|5|48|11|24|89|.385|2B:102/7,CF:10/1,RF:10/2
+栗原陵矢|ソ|142|628|539|146|40|118|0|75|116|.557|1B:9/0,3B:133/0
+庄子雄大|ソ|108|304|266|65|1|26|22|24|76|.297|2B:15/4,3B:0/1,SS:68/10,DH:0/4
+川瀬晃|ソ|73|182|155|32|0|20|0|16|31|.277|1B:0/3,2B:9/8,3B:2/1,SS:31/15
+野村勇|ソ|66|134|124|29|5|10|3|10|45|.403|2B:1/2,3B:5/23,SS:23/5,DH:0/1
+今宮健太|ソ|63|176|159|38|2|16|0|11|37|.314|2B:16/3,3B:3/2,SS:21/3,DH:0/5
+近藤健介|ソ|139|601|489|151|32|108|6|101|98|.569|LF:92/0,RF:5/0,DH:40/0
+笹川吉康|ソ|15|36|33|5|0|4|0|2|8|.273|LF:3/1,CF:2/4,RF:3/1,DH:0/1
+緒方理貢|ソ|14|6|6|2|0|0|1|0|1|.333|LF:1/9,DH:0/3
+イヒネイツア|ソ|9|3|3|0|0|0|0|0|2|.000|LF:0/6,RF:0/1
+周東佑京|ソ|127|550|483|133|4|39|30|42|81|.362|CF:124/2
+川村友斗|ソ|103|45|42|4|0|1|2|2|11|.119|LF:0/37,CF:4/14,RF:1/43,DH:0/1
+柳町達|ソ|87|318|278|73|2|43|0|34|69|.374|LF:5/2,CF:1/0,RF:65/3,DH:0/1
+山本恵大|ソ|18|62|56|15|3|7|0|3|14|.464|RF:16/0
+谷川原健太|ソ|87|66|63|14|0|3|1|3|23|.286|C:5/15,LF:0/3,CF:1/2,RF:5/54,DH:0/2
+柳田悠岐|ソ|128|495|460|139|19|70|0|26|88|.480|LF:30/0,DH:87/1
+田宮裕涼|日|94|289|267|71|7|30|4|10|55|.404|C:74/13,LF:1/0,CF:0/1,DH:0/1
+進藤勇也|日|66|160|142|30|8|18|0|11|44|.451|C:49/15,DH:0/1
+清水優心|日|21|37|32|4|1|4|0|4|6|.250|C:7/10,1B:0/2
+清宮幸太郎|日|135|513|447|106|23|65|2|49|100|.430|1B:108/7,3B:4/0,LF:4/2,DH:3/2
+奈良間大己|日|116|250|225|56|5|24|7|16|65|.364|2B:54/26,3B:3/24,SS:3/3
+大塚瑠晏|日|61|156|138|25|6|16|0|13|55|.355|2B:26/8,3B:5/6,SS:9/2,DH:0/2
+山縣秀|日|61|107|97|22|0|5|2|5|16|.268|2B:14/13,3B:3/17,SS:7/7
+上川畑大悟|日|23|56|50|11|0|4|0|3|8|.280|2B:12/4,3B:0/2,SS:1/2
+常谷拓輝|日|5|13|11|1|0|0|0|2|4|.091|2B:3/0,DH:0/1
+郡司裕也|日|110|381|323|81|7|28|0|50|58|.362|C:11/2,1B:6/0,3B:58/3,LF:17/1
+有薗直輝|日|35|127|110|25|1|11|2|12|48|.327|1B:0/1,3B:33/0
+水野達稀|日|132|553|491|142|11|58|16|26|90|.444|2B:6/1,SS:122/2
+野村佑希|日|118|429|401|103|17|61|4|22|92|.421|1B:10/0,2B:4/1,3B:30/2,LF:41/1,CF:6/0,RF:11/0,DH:3/3
+水谷瞬|日|62|217|201|48|6|23|2|11|55|.378|LF:38/2,CF:5/0,RF:9/0,DH:1/0
+今川優馬|日|17|50|44|10|4|9|1|6|11|.523|LF:9/2,CF:1/2,RF:2/0
+マルティネス|日|21|41|36|5|2|4|0|4|14|.306|C:0/1,1B:2/0,LF:6/1,DH:1/1
+カストロ|日|71|222|200|43|8|24|4|14|57|.365|2B:15/0,3B:3/1,SS:0/1,LF:4/2,CF:29/6,RF:2/1,DH:0/1
+矢澤宏太|日|73||||||||||LF:2/17,CF:25/12,RF:1/4,DH:0/6
+五十幡亮汰|日|101|127|116|26|0|3|13|4|29|.276|CF:24/63,RF:0/1,DH:0/3
+吉田賢吾|日|53|149|145|39|8|19|1|2|31|.531|C:0/1,1B:6/0,2B:0/1,LF:9/1,CF:17/1,RF:2/0,DH:3/1
+細川凌平|日|84|138|114|25|2|11|8|18|19|.298|1B:0/6,2B:9/2,3B:4/4,LF:0/22,CF:15/6,RF:1/10,DH:0/3
+西川遥輝|日|25|77|62|12|1|6|2|13|21|.323|1B:1/0,LF:8/1,CF:9/2
+淺間大基|日|19|53|49|8|2|3|1|4|16|.306|LF:3/3,CF:6/1,RF:3/0
+宮崎一樹|日|7|19|19|2|1|1|0|0|5|.263|LF:1/1,CF:3/1,RF:1/0
+エドポロケイン|日|4|10|10|0|0|0|0|0|4|.000|CF:3/1
+万波中正|日|119|466|421|108|21|55|0|37|114|.454|RF:111/5,DH:1/1
+レイエス|日|128|531|476|149|32|82|0|49|100|.571|1B:9/0,DH:117/1
+柴田獅子|日|16||||||||||1B:1/0,DH:5/0
+若月健矢|オ|114|342|298|66|2|19|0|23|64|.299|C:101/11,DH:2/0
+福永奨|オ|28|36|32|4|1|2|0|1|11|.250|C:11/17
+堀柊那|オ|12|25|25|4|0|1|0|0|9|.160|C:8/4
+石川亮|オ|10|8|8|0|0|0|0|0|3|.000|C:3/7
+山中稜真|オ|92|353|316|82|2|26|2|30|51|.342|1B:58/2,LF:15/2,RF:8/1
+シーモア|オ|42|144|139|22|3|15|0|3|45|.252|1B:26/1,DH:12/0
+内藤鵬|オ|6|22|22|4|0|1|0|0|6|.227|1B:5/0,DH:1/0
+太田椋|オ|125|515|464|130|9|50|0|47|101|.401|1B:52/0,2B:72/0
+野口智哉|オ|83|166|148|33|4|21|2|11|50|.345|2B:31/22,3B:4/2,SS:4/6,DH:0/1
+大城滉二|オ|22|51|48|11|0|4|0|2|9|.271|2B:11/8,3B:1/0,DH:2/0
+宜保翔|オ|28|47|43|7|0|0|2|2|10|.186|2B:10/1,SS:1/2,LF:0/1,DH:0/6
+宗佑磨|オ|134|541|465|114|14|65|6|56|91|.387|3B:128/5
+紅林弘太郎|オ|136|532|470|122|18|60|1|48|87|.430|SS:134/2
+横山聖哉|オ|9|23|21|2|0|0|0|1|12|.095|2B:2/0,3B:1/1,SS:4/0
+西川龍馬|オ|143|612|573|155|13|54|1|33|91|.393|LF:92/0,DH:51/0
+池田陵真|オ|10|27|25|3|1|2|0|2|8|.280|LF:4/3,RF:3/0
+平沼翔太|オ|27|39|37|8|0|2|0|2|9|.270|1B:1/7,2B:1/0,3B:1/2,LF:2/0,RF:0/2,DH:0/1
+渡部遼人|オ|97|252|217|49|3|13|18|23|44|.295|LF:2/8,CF:59/19,DH:0/3
+中川圭太|オ|113|438|393|99|6|33|3|33|46|.338|LF:23/3,CF:46/1,RF:35/1,DH:0/1
+麦谷祐介|オ|59|95|89|13|1|5|2|4|35|.213|CF:18/7,RF:4/15,DH:0/8
+杉澤龍|オ|30|74|66|20|2|7|1|4|19|.500|LF:1/1,CF:12/3,RF:5/2,DH:0/2
+来田涼斗|オ|103|356|331|86|9|43|4|15|68|.414|LF:4/0,CF:6/0,RF:73/13,DH:0/2
+廣岡大志|オ|16|62|58|11|1|4|0|3|20|.241|1B:1/0,3B:1/0,CF:2/0,RF:12/0
+森友哉|オ|66|252|226|55|7|24|0|24|45|.376|C:20/1,DH:43/0
+杉本裕太郎|オ|24|80|73|12|0|5|0|4|25|.233|RF:3/0,DH:16/0
+窪田洋祐|オ|2|1|1|0|0|0|0|0|1|.000|DH:0/1
+太田光|楽|100|285|257|52|3|18|0|18|70|.265|C:87/13
+堀内謙伍|楽|49|125|103|19|1|6|1|13|33|.252|C:34/15
+伊藤光|楽|22|36|30|4|1|2|0|3|10|.233|C:13/7
+石原彪|楽|7|12|9|2|0|1|0|2|0|.222|C:4/3
+田中貴也|楽|7|5|4|2|0|0|0|0|1|.500|C:0/7
+浅村栄斗|楽|87|333|286|62|9|35|1|40|72|.343|1B:49/2,DH:33/3
+YG安田|楽|72|263|243|68|8|33|0|19|60|.440|C:5/7,1B:35/0,DH:24/0
+渡邊佳明|楽|73|165|147|36|1|17|0|13|25|.313|1B:14/5,2B:0/1,3B:5/1,LF:11/5,RF:1/1,DH:1/0
+伊藤裕季也|楽|19|53|48|9|3|8|0|4|17|.438|1B:9/0,3B:2/0,LF:3/1,DH:0/1
+鈴木大地|楽|34|55|49|8|0|3|0|3|10|.204|1B:5/7,3B:2/10,DH:0/1
+金子京介|楽|4|11|10|1|0|0|0|0|6|.100|1B:3/0,DH:1/0
+小深田大翔|楽|86|163|148|32|0|8|9|9|41|.270|2B:39/34,LF:0/2,DH:0/1
+陽柏翔|楽|7|10|9|2|0|0|0|1|4|.222|2B:3/3,DH:0/1
+黒川史陽|楽|129|491|436|107|5|27|2|45|65|.314|1B:22/4,2B:37/1,3B:58/3
+平良竜哉|楽|98|266|249|60|9|20|12|10|45|.386|2B:0/4,3B:52/18,LF:9/1,RF:1/0,DH:0/6
+繁永晟|楽|27|77|70|13|0|5|0|4|5|.243|2B:7/0,3B:16/0
+村林一輝|楽|137|536|483|127|4|60|8|41|86|.331|2B:53/1,3B:7/1,SS:72/0,DH:1/0
+宗山塁|楽|68|272|245|68|8|27|5|23|30|.453|SS:66/2
+入江大樹|楽|17|26|24|5|0|0|0|2|5|.250|1B:1/1,2B:3/1,SS:3/4,DH:0/1
+ワォーターズ|楽|11|14|14|4|0|0|0|0|5|.357|2B:1/1,3B:1/0,SS:2/4
+中島大輔|楽|125|468|416|114|5|27|11|35|54|.382|LF:52/15,CF:8/3,RF:46/0,DH:0/1
+吉野創士|楽|20|36|34|4|0|0|0|0|14|.147|LF:5/1,CF:4/1,RF:1/0
+阪上翔也|楽|7|18|17|3|0|0|0|1|6|.176|LF:4/0,RF:1/1
+小森航大郎|楽|19|20|18|0|0|1|1|0|7|.000|1B:1/1,LF:3/3,RF:2/2,DH:0/2
+辰己涼介|楽|137|568|502|132|15|52|8|55|123|.402|CF:130/4,DH:3/0
+佐藤直樹|楽|71|230|221|54|6|19|4|7|70|.394|LF:6/1,CF:1/1,RF:45/11,DH:1/0
+小郷裕哉|楽|59|178|163|37|1|9|8|13|45|.294|RF:40/12,DH:1/2
+吉納翼|楽|4|15|13|0|0|0|0|2|8|.000|RF:4/0
+武藤敦貴|楽|24|25|21|4|0|2|2|3|4|.238|LF:2/7,CF:0/2,RF:2/10
+マッカスカー|楽|102|406|362|89|24|70|0|38|142|.494|LF:48/1,DH:53/0
+ボイト|楽|20|74|67|8|0|3|0|4|19|.164|1B:4/0,DH:14/0
+小島大河|西|99|367|341|91|9|40|0|22|36|.375|C:83/2,DH:5/2
+古賀悠斗|西|91|235|199|53|4|27|2|26|49|.372|C:47/31,DH:9/0
+柘植世那|西|30|55|51|16|1|2|0|1|9|.412|C:13/17
+ネビン|西|103|428|374|99|21|48|0|39|65|.489|1B:83/0,DH:20/0
+平沢大河|西|91|312|284|71|3|19|1|24|60|.352|1B:25/4,2B:2/1,3B:25/1,LF:19/2,RF:3/3,DH:1/3
+石井一成|西|74|257|237|56|7|22|0|14|58|.376|2B:63/2,3B:2/1,DH:2/3
+外崎修汰|西|35|103|96|16|2|9|1|4|20|.260|1B:3/1,2B:13/3,DH:9/3
+仲田慶介|西|26|33|31|7|0|3|0|1|6|.484|1B:0/1,2B:8/3,3B:0/1,LF:0/2,RF:0/1,DH:0/6
+佐藤太陽|西|14|26|26|6|1|2|0|0|8|.423|2B:8/2,3B:0/3,SS:0/1
+児玉亮涼|西|11|3|3|0|0|0|0|0|1|.000|2B:1/1,3B:0/8
+渡部聖弥|西|129|515|482|123|12|48|3|23|92|.380|3B:102/3,DH:24/0
+山村崇嘉|西|29|88|80|16|1|6|0|6|14|.250|1B:7/4,3B:13/3
+源田壮亮|西|117|319|275|60|1|27|1|29|44|.280|SS:80/37
+滝澤夏央|西|123|470|398|110|1|31|13|41|55|.312|2B:48/8,3B:1/1,SS:63/2
+桑原将志|西|62|239|216|49|3|15|2|16|36|.329|LF:49/4,CF:7/0,DH:1/1
+蛭間拓哉|西|36|98|89|24|0|8|0|4|16|.382|LF:22/4,CF:2/0,RF:1/0,DH:2/4
+西川愛也|西|99|321|297|67|3|28|5|10|54|.316|CF:72/26
+長谷川信哉|西|86|307|274|73|13|39|7|18|63|.474|1B:21/2,LF:9/5,CF:33/0,RF:8/8
+岸潤一郎|西|99|196|177|42|1|12|3|8|39|.311|1B:4/2,LF:16/34,CF:18/11,RF:0/6,DH:0/2
+若林楽人|西|5|17|14|2|0|0|0|3|5|.143|CF:5/0
+秋山俊|西|5|14|14|2|0|0|0|0|2|.143|CF:5/0
+カナリオ|西|133|529|486|120|16|54|13|38|137|.401|RF:125/2,DH:3/0
+茶野篤政|西|16|8|7|1|0|0|0|0|2|.143|LF:0/5,CF:1/0,RF:1/4,DH:0/1
+林安可|西|76|262|236|52|8|29|0|18|65|.381|LF:24/0,RF:5/0,DH:36/2
+中村剛也|西|26|64|60|14|1|8|0|4|22|.350|DH:14/2
+仲三優太|西|11|35|31|4|1|3|0|4|17|.226|LF:4/1,DH:5/0
+村田怜音|西|4|10|9|0|0|0|0|1|5|.000|1B:0/1,DH:2/0
+髙松渡|西|12|2|2|0|0|0|5|0|2|.000|LF:0/2,RF:0/1,DH:0/5
+佐藤都志也|ロ|132|462|405|91|18|57|1|48|95|.398|C:104/19,1B:4/0,DH:1/0
+松川虎生|ロ|50|109|101|19|0|6|0|3|31|.218|C:37/13
+田村龍弘|ロ|2|3|3|0|0|0|0|0|2|.000|C:1/1
+岡村了樹|ロ|2|4|4|1|0|0|0|0|1|.250|C:1/0
+ソト|ロ|115|372|339|75|17|47|0|24|96|.413|1B:60/6,DH:30/4
+安田尚憲|ロ|76|235|218|56|6|29|0|15|61|.413|1B:29/3,3B:21/4,DH:9/0
+池田来翔|ロ|86|94|90|20|0|1|4|2|22|.300|1B:11/51,2B:4/4,3B:2/8,LF:0/1,DH:0/1
+立松由宇|ロ|3|6|6|2|0|0|0|0|2|.333|1B:2/0
+小川龍成|ロ|140|509|469|120|2|23|8|21|77|.309|2B:116/3,SS:17/3
+藤岡裕大|ロ|9|26|22|3|0|1|0|2|7|.136|2B:5/1,SS:1/0,DH:0/1
+宮崎竜成|ロ|45|41|40|5|1|1|0|1|17|.225|1B:0/1,2B:4/9,3B:0/20,SS:2/8
+寺地隆成|ロ|105|391|352|79|5|30|0|33|68|.301|1B:4/0,3B:95/2,DH:0/1
+上田希由翔|ロ|66|190|177|43|8|16|0|13|38|.429|1B:19/5,2B:13/2,3B:20/0
+櫻井ユウヤ|ロ|6|12|12|1|0|0|0|0|7|.083|3B:4/0,DH:0/1
+友杉篤輝|ロ|87|276|254|60|0|16|3|14|39|.268|SS:74/12
+山﨑剛|ロ|61|170|154|33|1|7|3|10|46|.273|2B:0/2,3B:1/2,SS:46/7
+茶谷健太|ロ|7|12|11|2|0|0|0|0|4|.182|SS:3/3
+山口航輝|ロ|113|447|412|114|38|81|0|27|107|.602|1B:7/1,LF:54/0,DH:46/2
+井上広大|ロ|54|141|132|24|8|15|0|7|47|.386|1B:5/1,LF:25/4,RF:3/0,DH:4/3
+藤原恭大|ロ|108|467|407|103|8|40|12|46|91|.354|CF:60/0,RF:46/2
+髙部瑛斗|ロ|54|154|144|33|0|7|3|9|29|.264|CF:39/6,DH:0/1
+愛斗|ロ|41|90|86|18|1|9|3|1|20|.291|CF:26/12,DH:0/2
+和田康士朗|ロ|30|29|23|5|0|1|4|4|5|.217|LF:0/4,CF:6/9,DH:0/5
+岡大海|ロ|26|50|45|6|0|0|2|4|14|.156|1B:2/3,LF:1/2,CF:5/4,RF:0/4,DH:0/1
+西川史礁|ロ|136|586|534|155|8|53|2|41|109|.391|LF:60/0,CF:3/0,RF:71/0,DH:2/0
+山本大斗|ロ|79|153|139|28|4|11|0|10|36|.317|LF:2/3,CF:4/4,RF:23/33,DH:1/1
+ポランコ|ロ|52|149|133|25|5|14|0|14|43|.361|DH:32/4
+石川慎吾|ロ|16|37|33|4|1|7|0|3|17|.242|DH:7/2`;
+const PL=RAW.trim().split('\n').map(l=>{const f=l.split('|'),fd={};f[12].split(',').forEach(e=>{if(!e)return;const[k,v]=e.split(':'),[a,b]=v.split('/');fd[k]=[+a,+b]});const has=f[3]!=='';return{n:f[0],t:f[1],g:+f[2],has,pa:+f[3]||0,ab:+f[4]||0,h:+f[5]||0,hr:+f[6]||0,rbi:+f[7]||0,sb:+f[8]||0,bb:+f[9]||0,so:+f[10]||0,slg:has?+f[11]:null,fd}});
+const rnd=n=>Math.floor(Math.random()*n),$=document.getElementById('a'),f3=x=>x>=1?x.toFixed(3):x.toFixed(3).replace(/^0/,''),avg=p=>p.ab>0?f3(p.h/p.ab):'-',gmv=(p,k)=>p.fd[k]?p.fd[k][0]+p.fd[k][1]:0;
+/* ---------- 画面の状態 ---------- */
+let S={st:'mode'};
+const mkP=()=>({ord:Array(9).fill(null),bn:{},hist:[],used:[]}),nst=P=>P.ord.filter(Boolean).length,freePos=P=>POS.filter(k=>!P.ord.some(o=>o&&o.pos==k)),freeBn=P=>ROLES.filter(r=>!P.bn[r]);
+const getEx=()=>{try{const r=document.querySelector('input[name=ex]:checked');return r?r.value=='1':true}catch(e){return true}};
+function base(m,nm,ex){return{m,nm,ex,c:0,me:0,P:[mkP(),mkP()],st:'team',t:null,ps:null,sel:null,dest:null,bo:null,pp:null,br:null,sort:null,res:null,show:0,oppTaken:[],rej:[],lk:null,H:{lk:[null,null]},notice:''}}
+function start(m){const a=document.getElementById('n1'),b=document.getElementById('n2');S=base(m,m==2?[(a&&a.value)||'プレイヤー1',(b&&b.value)||'プレイヤー2']:['あなた','あなた'],m==2&&getEx());if(m==2)S.st='turn';draw()}
+function go(st){S.st=st;draw();scrollTo(0,0)}
+function team(t){S.t=t;S.ps=POS[rnd(9)];S.sel=null;S.sort=null;S.st='pick';draw();scrollTo(0,0)}
+function back(){S.t=null;S.sel=null;S.st='team';draw()}
+function undo(){const P=S.P[0],h=P.hist.pop();if(!h)return;P.used.pop();if(h.d=='s')P.ord[h.bo-1]=null;else delete P.bn[h.br];draw()}
+function pick(n){const P=S.P[S.c];if(S.sel==n){S.sel=null}else{S.sel=n;S.bo=null;S.br=null;S.pp=freePos(P).includes(S.ps)?S.ps:null;S.dest=nst(P)<9?'s':'b'}draw()}
+function dst(d){S.dest=d;draw()}function setBo(i){S.bo=S.bo==i?null:i;draw()}function setPos(k){S.pp=S.pp==k?null:k;draw()}function setBr(r){S.br=S.br==r?null:r;draw()}function srt(k){S.sort=k;draw()}
+function commit(P,l){const p=PL.find(x=>x.n==l.n&&x.t==l.t),h={t:l.t,p};if(l.dest=='s'){P.ord[l.bo-1]={p,t:l.t,pos:l.pos};h.d='s';h.bo=l.bo}else{P.bn[l.br]={p,t:l.t};h.d='b';h.br=l.br}P.used.push(l.t);P.hist.push(h)}
+function ok(){const P=S.P[S.c];commit(P,{n:S.sel,t:S.t,dest:S.dest,bo:S.bo,pos:S.pp,br:S.br});S.t=null;S.sel=null;
+ if(S.P.slice(0,S.m).every(x=>x.used.length>=12))S.st=S.m==2?'done2':'done1';else if(S.m==2){S.c=1-S.c;S.st='turn'}else S.st='team';draw();scrollTo(0,0)}
+/* ---------- 表示 ---------- */
+const hd=()=>`<h1>⚾ スタメンシミュレーター</h1>`;
+const bat=p=>p.has?(p.ab>0?`打率 <b>${avg(p)}</b> ・ 本塁打 ${p.hr} ・ 打点 ${p.rbi} ・ 盗塁 ${p.sb} ・ 四球 ${p.bb} ・ 三振 ${p.so} ・ 長打率 ${f3(p.slg)}<br><span class="s">${p.g}試合 ・ ${p.pa}打席 ${p.ab}打数 ${p.h}安打</span>`:`<span class="s">${p.g}試合 ・ 打数なし(${p.pa}打席)</span>`):`<span class="s">${p.g}試合 ・ 打席なし(守備のみの出場)</span>`;
+const dfl=(p,k)=>POS.filter(x=>p.fd[x]).map(x=>{const[a,b]=p.fd[x],t=`${PN[x].replace('手','')} 先発${a}・途中${b}`;return x==k?`<i>${t}</i>`:t}).join(' ／ ')||'守備の出場なし';
+const SO={g:['',null],pa:['打席',p=>p.pa],avg:['打率',p=>p.ab>0?p.h/p.ab:-1],hr:['本塁打',p=>p.hr],rbi:['打点',p=>p.rbi],sb:['盗塁',p=>p.sb],slg:['長打率',p=>p.slg==null?-1:p.slg]};
+const lineupBox=P=>`<div class="c sc"><table><tr><th>打順</th><th>守備</th><th>選手</th></tr>${P.ord.map((o,i)=>`<tr><td>${i+1}</td><td>${o?PS[o.pos]:'―'}</td><td>${o?`<b>${o.p.n}</b> <span class="s">${TM[o.t]}</span>${o.p.fd[o.pos]?'':' <span class="ng">⚠未経験</span>'}`:'<span class="s">空き</span>'}</td></tr>`).join('')}${ROLES.map(r=>`<tr><td>控</td><td>${r}</td><td>${P.bn[r]?`<b>${P.bn[r].p.n}</b> <span class="s">${TM[P.bn[r].t]}</span>`:'<span class="s">空き</span>'}</td></tr>`).join('')}</table></div>`;
+const exOpt=()=>`<div class="s" style="margin-top:6px">選手の重複</div><label style="display:block;font-size:13px"><input type="radio" name="ex" value="1" checked style="width:auto;margin:0 6px 0 0">相手が選んだ選手は選べない</label><label style="display:block;font-size:13px"><input type="radio" name="ex" value="0" style="width:auto;margin:0 6px 0 0">同じ選手を選べる</label>`;
+const vMode=()=>`${hd()}<div class="c"><div class="s">12球団(2026年)の選手から、抽選で出たポジションの選手を選び、あなただけのスタメンと控えをつくります。</div></div><button class="p wide" onclick="start(1)">ひとりで遊ぶ</button><h2>二人で対戦</h2><div class="c"><div class="s">交互にオーダーをつくり、最後に仮試合で勝負します。投手は両チームとも、同じ能力の架空の選手です。</div><input id="n1" value="プレイヤー1" maxlength="10"><input id="n2" value="プレイヤー2" maxlength="10">${exOpt()}<button class="p wide" onclick="start(2)">二人で対戦する(1台で交互に)</button><button class="wide" onclick="go('online')">オンライン対戦(2台・部屋コード)</button></div><div class="c"><b>ルール</b><div class="s">・ラウンドごとに、まだ選んでいない球団を1つ選びます(12球団を1回ずつ)。<br>・選ぶとポジションが抽選で決まります。同じポジションが続くこともあります。<br>・そのポジションで2026年に1試合でも出場した選手から1人を選び、スタメン(打順と守備位置)か、控え(代打・守備固め・代走)に配置します。守備位置は、抽選で出たポジション以外にも置けます。<br>・12人(スタメン9人+控え3人)がそろえば完成です。</div></div>`;
+const vTurn=()=>`${hd()}<div class="c" style="text-align:center"><div class="s">第${S.P[S.c].used.length+1}ラウンド</div><div class="big">${S.nm[S.c]}</div><div class="s">の番です。端末を渡して、準備ができたら押してください。<br>相手のオーダーは、完成するまで見えません。</div><button class="p wide" onclick="go('team')">自分の番を始める</button></div>`;
+function vTeam(){const P=S.P[S.c],r=P.used.length;return`${hd()}<div class="c"><b>${S.m==2?S.nm[S.c]+'の番 ・ ':''}第${r+1}ラウンド / 12</b><div class="bar"><b style="width:${r/12*100}%"></b></div><div class="s">球団を1つ選ぶと、ポジションが抽選で決まります(9ポジションが同じ確率で、同じポジションが続くこともあります)。${S.m==3?'相手とは同時に進みます。':''}</div></div><h2>現在のオーダー</h2>${lineupBox(P)}<h2>球団を選ぶ</h2><div class="grid">${Object.entries(TM).map(([k,v])=>{const h=P.hist.find(x=>x.t==k);return h?`<button class="tm" disabled>${v}<small>${h.p.n}</small></button>`:`<button class="tm" onclick="team('${k}')">${v}</button>`}).join('')}</div>${S.m==1&&P.hist.length?`<div class="bb"><div><button onclick="undo()">直前の選択を取り消す</button></div></div>`:''}`}
+const same=(a,b)=>a.n==b.n&&a.t==b.t,oppList=()=>S.m==2?S.P[1-S.c].hist.map(h=>h.p):S.m==3?S.oppTaken.map(x=>PL.find(p=>same(p,x))).filter(Boolean):[];
+const blocked=p=>(S.ex&&oppList().some(o=>same(o,p)))||S.rej.includes(p.n+p.t);
+function candList(){const k=S.ps;let L=PL.filter(p=>p.t==S.t&&p.fd[k]&&!blocked(p));const sk=S.sort||'g',fn=sk=='g'?p=>gmv(p,k):SO[sk][1];return L.sort((a,b)=>fn(b)-fn(a)||b.pa-a.pa)}
+function vPick(){const P=S.P[S.c],k=S.ps,sk=S.sort||'g',L=candList(),hid=S.ex&&S.m>=2?PL.filter(p=>p.t==S.t&&p.fd[k]&&blocked(p)).length:0;const sel=L.find(p=>p.n==S.sel),ready=sel&&(S.dest=='s'?S.bo&&S.pp:S.br),warn=sel&&S.dest=='s'&&S.pp&&!sel.fd[S.pp];
+ const panel=p=>`<div onclick="event.stopPropagation()"><div class="chips"><button class="${S.dest=='s'?'on':''}" ${nst(P)>=9?'disabled':''} onclick="dst('s')">スタメンにする</button><button class="${S.dest=='b'?'on':''}" ${freeBn(P).length?'':'disabled'} onclick="dst('b')">控えにする</button></div>${S.dest=='s'?`<div class="s">打順</div><div class="ord">${[1,2,3,4,5,6,7,8,9].map(i=>`<button class="${S.bo==i?'on':''}" ${P.ord[i-1]?'disabled':''} onclick="setBo(${i})">${i}</button>`).join('')}</div><div class="s">守備位置(○=2026年に出場あり ×=出場なし。使用済みは選べません)</div><div class="pos">${POS.map(q=>`<button class="${S.pp==q?'on':''}" ${P.ord.some(o=>o&&o.pos==q)?'disabled':''} onclick="setPos('${q}')">${PS[q]} ${p.fd[q]?'○':'×'}</button>`).join('')}</div>${warn?`<div class="s ng">${PN[S.pp]}での出場がありません。仮試合では、守備が大幅に不利になり、打撃も少し下がります。</div>`:''}`:`<div class="s">控えの役割</div><div class="chips">${ROLES.map(r=>`<button class="${S.br==r?'on':''}" ${P.bn[r]?'disabled':''} onclick="setBr('${r}')">${r}</button>`).join('')}</div>`}</div>`;
+ return`${hd()}<div class="c"><div class="s">${S.m==2?S.nm[S.c]+' ・ ':''}第${P.used.length+1}ラウンド / 12 ・ ${TM[S.t]}</div><div class="dice">🎲 ${PN[k]}(${PS[k]})</div><div class="s">2026年にこのポジションで1試合でも出場した${TM[S.t]}の選手: ${L.length}人${hid?`(相手に選ばれた${hid}人は選べません)`:''}。選手を選んだら、スタメン(打順と守備位置)か控えに配置してください。</div>${S.notice?`<div class="s ng" style="margin-top:6px">${S.notice}</div>`:''}</div><div class="chips">${Object.entries(SO).map(([x,v])=>`<button class="${sk==x?'on':''}" onclick="srt('${x}')">${x=='g'?'このポジション':v[0]}</button>`).join('')}</div>${L.map(p=>`<div class="card ${S.sel==p.n?'on':''}" onclick="pick('${p.n}')"><div class="h"><b>${p.n}</b><span class="s">このポジション ${gmv(p,k)}試合</span></div><div class="bt">${bat(p)}</div><div class="df">守備: ${dfl(p,k)}</div>${S.sel==p.n?panel(p):''}</div>`).join('')}<div class="bb"><div><button onclick="back()">球団を選び直す</button><button class="p" onclick="${S.m==3?'lock()':'ok()'}" ${ready?'':'disabled'}>${!sel?'選手を選んでください':S.dest=='s'?(ready?`${S.bo}番 ${PS[S.pp]} ${sel.n} で${S.m==3?'確定':'決定'}`:'打順と守備位置を選んでください'):(ready?`控え「${S.br}」に ${sel.n} で決定`:'控えの役割を選んでください')}</button></div></div>`}
+const sum=P=>{const L=P.ord.filter(Boolean).map(o=>o.p),ab=L.reduce((a,x)=>a+x.ab,0),h=L.reduce((a,x)=>a+x.h,0),n=k=>L.reduce((a,x)=>a+x[k],0);return{avg:ab?f3(h/ab):'-',slg:ab?f3(L.reduce((a,x)=>a+(x.slg||0)*x.ab,0)/ab):'-',hr:n('hr'),rbi:n('rbi'),sb:n('sb'),bb:n('bb'),so:n('so'),unf:P.ord.filter(o=>o&&!o.p.fd[o.pos]).length}};
+const cell=p=>`<td>${avg(p)}</td><td>${p.hr}</td><td>${p.rbi}</td><td>${p.sb}</td>`;
+const fin=(P,nm)=>{const m=sum(P);return`<h2>${nm}</h2><div class="c sc"><table><tr><th>打順</th><th>守備</th><th>選手</th><th>球団</th><th>打率</th><th>本</th><th>点</th><th>盗</th></tr>${P.ord.map((o,i)=>`<tr><td><b>${i+1}</b></td><td>${PS[o.pos]}</td><td><b>${o.p.n}</b>${o.p.fd[o.pos]?'':' <span class="ng">⚠</span>'}</td><td class="s">${TM[o.t]}</td>${cell(o.p)}</tr>`).join('')}${ROLES.map(r=>`<tr><td>控</td><td>${r}</td><td><b>${P.bn[r].p.n}</b></td><td class="s">${TM[P.bn[r].t]}</td>${cell(P.bn[r].p)}</tr>`).join('')}</table></div><div class="c">スタメン9人の打率 <b>${m.avg}</b> ・ 長打率 <b>${m.slg}</b> ・ 本塁打 <b>${m.hr}</b> ・ 打点 <b>${m.rbi}</b> ・ 盗塁 <b>${m.sb}</b>${m.unf?`<div class="s ng">⚠ 守備の出場がないポジションに就く選手: ${m.unf}人</div>`:'<div class="s">全員が、就くポジションでの出場経験があります。</div>'}</div>`};
+function txt(P,nm){return nm+'\n'+P.ord.map((o,i)=>`${i+1}番 ${PS[o.pos]} ${o.p.n}(${TM[o.t]}) 打率${avg(o.p)} ${o.p.hr}本 ${o.p.rbi}点 ${o.p.sb}盗`).join('\n')+'\n'+ROLES.map(r=>`${r}: ${P.bn[r].p.n}(${TM[P.bn[r].t]})`).join('\n')}
+function copy(){const t=S.m==2?txt(S.P[0],S.nm[0])+'\n\n'+txt(S.P[1],S.nm[1]):'スタメンシミュレーター\n'+txt(S.P[0],'マイオーダー');S.copyTxt=t;try{navigator.clipboard.writeText(t).then(()=>{S.msg='コピーしました'},()=>{S.msg=''}).finally(()=>{S.show=1;draw()})}catch(e){S.show=1;draw()}}
+const share=()=>S.show?`<div class="c"><div class="s">${S.msg||'下の文章を長押しして、コピーしてください。'}</div><textarea readonly onfocus="this.select()">${S.copyTxt}</textarea></div>`:'';
+const vDone1=()=>`${hd()}<div class="c"><b>オーダー完成!</b><div class="s">12球団から1人ずつ選んだ、あなたのスタメンと控えです。</div></div>${fin(S.P[0],'マイオーダー')}${share()}<div class="bb"><div><button onclick="copy()">文章で書き出す</button><button class="p" onclick="go('mode')">最初にもどる</button></div></div>`;
+const vDone2=()=>`${hd()}<div class="c"><b>二人のオーダーが完成!</b><div class="s">投手は同じ能力の架空の選手です。仮試合で勝負しましょう。</div></div>${fin(S.P[0],S.nm[0])}${fin(S.P[1],S.nm[1])}${share()}<div class="bb"><div><button onclick="copy()">書き出す</button><button class="p" onclick="go('match')">仮試合へ</button></div></div>`;
+
+/* ---------- オンライン対戦(部屋コード・PeerJSによる端末間通信) ---------- */
+const Net={peer:null,conn:null,open(role,code,cb){const id='stamen-'+code.toLowerCase(),bind=c=>{this.conn=c;c.on('open',()=>cb('joined'));c.on('data',d=>cb('data',d));c.on('close',()=>cb('closed'))};try{if(role=='host'){this.peer=new Peer(id);this.peer.on('open',()=>cb('ready'));this.peer.on('connection',c=>{if(this.conn){c.close();return}bind(c)})}else{this.peer=new Peer();this.peer.on('open',()=>bind(this.peer.connect(id,{reliable:true})))}this.peer.on('error',e=>cb('error',e.type))}catch(e){cb('error','nolib')}},send(o){if(this.conn&&this.conn.open)this.conn.send(o)},close(){try{this.conn&&this.conn.close();this.peer&&this.peer.destroy()}catch(e){}this.conn=null;this.peer=null}};
+const ERR={'unavailable-id':'この部屋コードは使われています。別のコードにしてください。','peer-unavailable':'その部屋コードの部屋が見つかりません。コードを確認してください。',nolib:'通信用の部品を読み込めませんでした。インターネットに接続して、開き直してください。'};
+const vOnline=()=>`${hd()}<div class="c"><b>オンライン対戦</b><div class="s">2台の端末で、同時に球団を選んでドラフトします。同じ選手を同時に選んだ場合は、抽選で決まり、外れた側は別の選手を選びます(「選べない」設定のとき)。通信できないときは、1台で交互に遊ぶモードをお使いください。</div></div><div class="c"><b>部屋をつくる</b><input id="oc" placeholder="部屋コード(半角英数字4〜8文字)" maxlength="8" autocapitalize="off"><input id="on" value="プレイヤー1" maxlength="10">${exOpt()}<button class="p wide" onclick="hostRoom()">部屋をつくる</button></div><div class="c"><b>部屋に入る</b><input id="jc" placeholder="部屋コード" maxlength="8" autocapitalize="off"><input id="jn" value="プレイヤー2" maxlength="10"><button class="p wide" onclick="joinRoom()">部屋に入る</button></div>${S.err?`<div class="c ng">${S.err}</div>`:''}<div class="bb"><div><button onclick="leave()">もどる</button></div></div>`;
+const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
+function leave(){Net.close();S={st:'mode'};draw()}
+function netEv(ev,d){if(ev=='ready'){S.net='wait'}else if(ev=='joined'){if(S.me==1)Net.send({k:'join',name:S.nm[1]})}else if(ev=='data'){recv(d);return}else if(ev=='closed'){if(S.st!='done2'&&S.st!='match'&&S.st!='mode'){S.err='接続が切れました。';S.st='err'}}else if(ev=='error'){S.err=ERR[d]||'通信エラーが発生しました('+d+')。';S.st='err'}draw()}
+function hostRoom(){const code=val('oc'),nm=val('on')||'プレイヤー1',ex=getEx();if(!/^[A-Za-z0-9]{4,8}$/.test(code)){S.err='部屋コードは、半角英数字4〜8文字にしてください。';return draw()}S=base(3,[nm,'(待機中)'],ex);S.me=0;S.c=0;S.code=code;S.st='lobby';S.joined=0;draw();Net.open('host',code,netEv)}
+function joinRoom(){const code=val('jc'),nm=val('jn')||'プレイヤー2';if(!/^[A-Za-z0-9]{4,8}$/.test(code)){S.err='部屋コードは、半角英数字4〜8文字にしてください。';return draw()}S=base(3,['(ホスト)',nm],true);S.me=1;S.c=1;S.code=code;S.st='lobby';draw();Net.open('guest',code,netEv)}
+function startOnline(){Net.send({k:'start',ex:S.ex,nm:S.nm});S.st='team';draw()}
+const vLobby=()=>`${hd()}<div class="c" style="text-align:center"><div class="s">部屋コード</div><div class="big">${S.code}</div>${S.me==0?(S.joined?`<div class="s"><b>${S.nm[1]}</b> が入室しました。</div><div class="s">選手の重複: ${S.ex?'相手が選んだ選手は選べない':'同じ選手を選べる'}</div><button class="p wide" onclick="startOnline()">ゲームを始める</button>`:'<div class="s">相手が入室するのを待っています。相手に、このコードを伝えてください。</div>'):`<div class="s">部屋に接続しています。接続できたら、ホストの開始を待ちます。</div>`}</div><div class="bb"><div><button onclick="leave()">やめる</button></div></div>`;
+const vErr=()=>`${hd()}<div class="c ng">${S.err}</div><div class="bb"><div><button class="p" onclick="leave()">最初にもどる</button></div></div>`;
+const vWait=()=>`${hd()}<div class="c" style="text-align:center"><div class="big">⏳</div><div><b>${S.lk?S.lk.n:''}</b> で確定しました。</div><div class="s">相手の確定を待っています…</div></div>`;
+const vFin=()=>`${hd()}<div class="c" style="text-align:center"><div class="big">⏳</div><div class="s">あなたのオーダーが完成しました。相手の完成を待っています…</div></div>`;
+function lock(){const p=PL.find(x=>x.n==S.sel&&x.t==S.t);S.lk={n:p.n,t:S.t,dest:S.dest,bo:S.bo,pos:S.pp,br:S.br};S.notice='';S.st='wait';draw();if(S.me==0)hostLock(0,{n:p.n,t:S.t});else Net.send({k:'lock',n:p.n,t:S.t})}
+function hostLock(i,l){const H=S.H;H.lk[i]=l;const a=H.lk[0],b=H.lk[1];if(!a||!b)return;if(S.ex&&same(a,b)){const lose=Math.floor(Math.random()*2);H.lk[lose]=null;if(lose==0)onReject();else Net.send({k:'reject'})}else{const f={k:'final',p:[{n:a.n,t:a.t},{n:b.n,t:b.t}]};H.lk=[null,null];Net.send(f);onFinal(f)}}
+function onReject(){if(!S.lk)return;S.rej.push(S.lk.n+S.lk.t);S.lk=null;S.sel=null;S.st='pick';S.notice='同じ選手を相手も選び、抽選で相手に決まりました。別の選手を選んでください。';draw()}
+const pack=P=>({ord:P.ord.map(o=>({n:o.p.n,t:o.t,pos:o.pos})),bn:Object.fromEntries(ROLES.map(r=>[r,{n:P.bn[r].p.n,t:P.bn[r].t}]))});
+const unpack=d=>{const P=mkP(),f=x=>PL.find(p=>same(p,x));P.ord=d.ord.map(o=>({p:f(o),t:o.t,pos:o.pos}));ROLES.forEach(r=>{P.bn[r]={p:f(d.bn[r]),t:d.bn[r].t}});return P};
+function onFinal(f){const P=S.P[S.me];commit(P,S.lk);S.oppTaken.push(f.p[1-S.me]);S.lk=null;S.rej=[];S.t=null;S.sel=null;S.notice='';if(P.used.length>=12){Net.send({k:'lineup',P:pack(P)});S.st='fin';chk()}else S.st='team';draw();scrollTo(0,0)}
+function chk(){if(S.P[S.me].used.length>=12&&S.gotL){S.st='done2';draw()}}
+function recv(m){if(m.k=='join'){S.nm[1]=m.name;S.joined=1}else if(m.k=='start'){S.ex=m.ex;S.nm=m.nm;S.st='team'}else if(m.k=='lock'){hostLock(1,{n:m.n,t:m.t});return}else if(m.k=='reject'){onReject();return}else if(m.k=='final'){onFinal(m);return}else if(m.k=='lineup'){S.P[1-S.me]=unpack(m.P);S.gotL=1;chk();return}else if(m.k=='res'){S.res=m.res}draw()}
+/* ---------- 仮試合シミュレーター ---------- */
+const LG=(()=>{let pa=0,bb=0,so=0,hr=0,h=0,tb=0;PL.filter(p=>p.pa>=100).forEach(p=>{pa+=p.pa;bb+=p.bb;so+=p.so;hr+=p.hr;h+=p.h;tb+=p.slg*p.ab});const d=Math.max(0,tb-h-3*hr);return{bb:bb/pa,so:so/pa,hr:hr/pa,x2:d/pa,x1:(h-hr-d)/pa}})();
+const RC=new Map();
+function rates(p,unf){const k=p.n+p.t+(unf?1:0);if(RC.has(k))return RC.get(k);const W=120,n=p.has?p.pa:0,tb=p.has?p.slg*p.ab:0,d=Math.max(0,tb-p.h-3*p.hr),s1=Math.max(0,p.h-p.hr-d),f=(x,l)=>(x+W*l)/(n+W),r={bb:f(p.bb,LG.bb),so:f(p.so,LG.so),hr:f(p.hr,LG.hr),x2:f(d,LG.x2),x1:f(s1,LG.x1)};if(unf){r.hr*=.95;r.x2*=.95;r.x1*=.95}RC.set(k,r);return r}
+const qv=r=>r.x1+2*r.x2+4*r.hr+.7*r.bb,spd=p=>(p.sb+1)/Math.max(p.g,30),penN=T=>T.sl.filter(s=>s.pos!='DH'&&!s.p.fd[s.pos]).length;
+function mkT(P){return{sl:P.ord.map(o=>({p:o.p,pos:o.pos})),ph:P.bn['代打'].p,pr:P.bn['代走'].p,df:P.bn['守備固め'].p,u:{},i:0}}
+function pa(r,pen){const x1=r.x1+.009*pen,x2=r.x2+.003*pen;let u=Math.random();if((u-=r.bb)<0)return'BB';if((u-=r.so)<0)return'K';if((u-=r.hr)<0)return'HR';if((u-=x2)<0)return'2B';if((u-=x1)<0)return'1B';return'OUT'}
+function dfSub(T){let best=null,g0=0;T.sl.forEach((s,i)=>{if(s.pos=='DH'||!T.df.fd[s.pos])return;const g=gmv(T.df,s.pos)-gmv(s.p,s.pos);if(g>g0){g0=g;best=i}});if(best!==null){T.sl[best].p=T.df;T.u.df=1;return T.sl[best].pos}}
+const EV={HR:'本塁打',['2B']:'二塁打',['1B']:'安打',BB:'四球',OUT:'内野ゴロの間'};
+function sim(A,B,log){const T=[mkT(A),mkT(B)],tot=[0,0],sc=[[],[]];let inn;
+ for(inn=1;inn<=12;inn++){
+  for(let h=0;h<2;h++){
+   if(h==1&&inn>=9&&tot[1]>tot[0]){sc[1][inn-1]='X';break}
+   const bt=T[h],fl=T[1-h],lead=tot[1-h]-tot[h];
+   if(inn>=8&&lead>=1&&lead<=3&&!fl.u.df){const ps=dfSub(fl);if(ps&&log)log.push(`${inn}回${h?'表':'裏'} 守備固め: ${fl.df.n}が${PN[ps]}に入る`)}
+   let outs=0,b=[-1,-1,-1],run=0;
+   while(outs<3){
+    const cur=bt.i%9,diff=tot[h]+run-tot[1-h];
+    if(inn>=8&&!bt.u.pr&&b[0]>=0&&outs<2&&diff<=0&&diff>=-1&&spd(bt.pr)>spd(bt.sl[b[0]].p)*1.2){const s=bt.sl[b[0]];if(log)log.push(`${inn}回${h?'裏':'表'} 代走: ${bt.pr.n}が${s.p.n}に代わる`);s.p=bt.pr;bt.u.pr=1}
+    if(inn>=7&&!bt.u.ph&&outs<2&&(b[1]>=0||b[2]>=0)&&diff<=0&&diff>=-2){const s=bt.sl[cur];if(qv(rates(bt.ph,!bt.ph.fd[s.pos]))>qv(rates(s.p,!s.p.fd[s.pos]))*1.05){if(log)log.push(`${inn}回${h?'裏':'表'} 代打: ${bt.ph.n}が${s.p.n}に代わる`);s.p=bt.ph;bt.u.ph=1}}
+    const s=bt.sl[cur],ev=pa(rates(s.p,!s.p.fd[s.pos]),penN(fl));let r0=run;
+    if(ev=='K')outs++;
+    else if(ev=='OUT'){if(b[0]>=0&&outs<2&&Math.random()<.12){outs+=2;b[0]=-1}else{outs++;if(outs<3&&b[2]>=0&&Math.random()<.3){run++;b[2]=-1}}}
+    else if(ev=='BB'){if(b[0]<0)b[0]=cur;else if(b[1]<0){b[1]=b[0];b[0]=cur}else if(b[2]<0){b[2]=b[1];b[1]=b[0];b[0]=cur}else{run++;b[2]=b[1];b[1]=b[0];b[0]=cur}}
+    else if(ev=='1B'){const n=[cur,-1,-1];if(b[2]>=0)run++;if(b[1]>=0){if(Math.random()<.55)run++;else n[2]=b[1]}if(b[0]>=0){const pr=Math.min(.5,Math.max(.1,.25+(spd(bt.sl[b[0]].p)-.1)*1.5));if(n[2]<0&&Math.random()<pr)n[2]=b[0];else n[1]=b[0]}b=n}
+    else if(ev=='2B'){const n=[-1,cur,-1];if(b[2]>=0)run++;if(b[1]>=0)run++;if(b[0]>=0){if(Math.random()<.4)run++;else n[2]=b[0]}b=n}
+    else{run+=1+b.filter(x=>x>=0).length;b=[-1,-1,-1]}
+    bt.i++;
+    if(log&&run>r0&&(ev=='HR'||run-r0>=2))log.push(`${inn}回${h?'裏':'表'} ${s.p.n}の${EV[ev]}で${run-r0}点 (${tot[0]+(h?0:run)}-${tot[1]+(h?run:0)})`);
+    if(h==1&&inn>=9&&tot[1]+run>tot[0])break;
+   }
+   tot[h]+=run;sc[h][inn-1]=run;
+  }
+  if(inn>=9&&tot[0]!=tot[1])break;
+ }
+ return{tot,sc,inn:Math.min(inn,12)}}
+function one(){const log=[],g2=sim(S.P[0],S.P[1],log);S.res={one:{...g2,log}};shareRes();draw()}
+function shareRes(){if(S.m==3)Net.send({k:'res',res:S.res})}
+function many(){let w=0,l=0,t=0,ra=0,rb=0;for(let i=0;i<143;i++){const rv=i%2,g=rv?sim(S.P[1],S.P[0]):sim(S.P[0],S.P[1]),a=g.tot[rv],b=g.tot[1-rv];ra+=a;rb+=b;if(a>b)w++;else if(a<b)l++;else t++}S.res={many:{w,l,t,ra,rb}};shareRes();draw()}
+const score=g=>{const n=Math.max(9,g.sc[0].length);return`<div class="sc"><table><tr><th></th>${Array.from({length:n},(_,i)=>`<th>${i+1}</th>`).join('')}<th>計</th></tr>${[0,1].map(h=>`<tr><td>${S.nm[h]}</td>${Array.from({length:n},(_,i)=>`<td>${g.sc[h][i]===undefined?'':g.sc[h][i]}</td>`).join('')}<td><b>${g.tot[h]}</b></td></tr>`).join('')}</table></div>`};
+function vMatch(){const A=S.P[0],B=S.P[1],ma=sum(A),mb=sum(B),r=S.res;return`${hd()}<h2>仮試合</h2><div class="c"><div class="s">両チームの投手は、同じ能力の架空の選手です。守備の出場がないポジションに就いた選手は、守備で大幅に不利になり、打撃も少し下がります。代打・代走・守備固めは、試合の終盤に条件が合えば出場します。</div><table><tr><th></th><th>${S.nm[0]}</th><th>${S.nm[1]}</th></tr><tr><td>打率(スタメン)</td><td>${ma.avg}</td><td>${mb.avg}</td></tr><tr><td>長打率</td><td>${ma.slg}</td><td>${mb.slg}</td></tr><tr><td>本塁打</td><td>${ma.hr}</td><td>${mb.hr}</td></tr><tr><td>盗塁</td><td>${ma.sb}</td><td>${mb.sb}</td></tr><tr><td>守備が未経験の人数</td><td class="${ma.unf?'ng':''}">${ma.unf}</td><td class="${mb.unf?'ng':''}">${mb.unf}</td></tr></table></div>${S.m==3&&S.me==1?'<div class="s">試合の実行はホスト(部屋をつくった人)が行い、結果が自動で表示されます。</div>':`<div class="grid"><button class="p" onclick="one()">1試合を見る</button><button class="p" onclick="many()">143試合を実行</button></div>`}${r&&r.one?`<h2>結果</h2><div class="c"><div class="s">${S.nm[0]}(先攻) 対 ${S.nm[1]}(後攻)</div>${score(r.one)}<div class="big">${r.one.tot[0]>r.one.tot[1]?S.nm[0]+'の勝ち':r.one.tot[0]<r.one.tot[1]?S.nm[1]+'の勝ち':'引き分け'}</div>${r.one.log.length?`<div class="s" style="margin-top:6px">${r.one.log.join('<br>')}</div>`:''}</div>`:''}${r&&r.many?`<h2>143試合の結果</h2><div class="c"><div class="big">${r.many.w}勝${r.many.l}敗${r.many.t?r.many.t+'分':''}</div><div class="s" style="text-align:center">${S.nm[0]} の勝率 ${f3(r.many.w/(r.many.w+r.many.l||1))} ・ 平均得点 ${(r.many.ra/143).toFixed(2)} 対 ${(r.many.rb/143).toFixed(2)}(${S.nm[1]})</div><div class="bar"><b style="width:${r.many.w/143*100}%"></b></div><div class="s" style="text-align:center">${r.many.w>r.many.l?S.nm[0]+'のほうが強いオーダーです':r.many.w<r.many.l?S.nm[1]+'のほうが強いオーダーです':'互角のオーダーです'}</div></div>`:''}<div class="bb"><div><button onclick="go('done2')">オーダーにもどる</button><button class="p" onclick="go('mode')">最初にもどる</button></div></div>`}
+function draw(){$.innerHTML=S.st=='online'?vOnline():S.st=='lobby'?vLobby():S.st=='err'?vErr():S.st=='wait'?vWait():S.st=='fin'?vFin():S.st=='mode'?vMode():S.st=='turn'?vTurn():S.st=='team'?vTeam():S.st=='pick'?vPick():S.st=='done1'?vDone1():S.st=='done2'?vDone2():vMatch()}
+draw();
+</script></body></html>
