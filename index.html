@@ -877,8 +877,8 @@ const vDone1=()=>`${hd()}<div class="c"><b>オーダー完成!</b><div class="s"
 const vDone2=()=>`${hd()}<div class="c"><b>二人のオーダーが完成!</b><div class="s">投手は同じ能力の架空の選手です。仮試合で勝負しましょう。</div></div>${fin(S.P[0],S.nm[0])}${fin(S.P[1],S.nm[1])}${share()}<div class="bb"><div><button onclick="copy()">書き出す</button><button class="p" onclick="go('match')">仮試合へ</button></div></div>`;
 
 /* ---------- 投手ドラフト ---------- */
-const PR=[{r:'SP',n:2,l:'先発',d:'2026年に先発登板のある投手'},{r:'RP',n:3,l:'中継ぎ(1セット目)',d:'2026年に救援登板のある投手'},{r:'RP',n:3,l:'中継ぎ(2セット目)',d:'2026年に救援登板のある投手'},{r:'CL',n:1,l:'守護神',d:'2026年にセーブのある投手(3人に満たない球団は、ホールドの多い救援投手を追加)'}];
-const pcand=(t,r)=>{const L=PT.filter(p=>p.t==t);if(r=='SP')return L.filter(p=>p.gs>=1);if(r=='RP')return L.filter(p=>p.g-p.gs>=1);let c=L.filter(p=>p.sv>=1);if(c.length<3)c=c.concat(L.filter(p=>p.sv<1&&p.g-p.gs>=1).sort((a,b)=>b.hd-a.hd).slice(0,3-c.length));return c};
+const PR=[{r:'SP',n:2,l:'先発',d:'2026年に先発登板のある投手'},{r:'RP',n:3,l:'中継ぎ(1セット目)',d:'先発以外(中継ぎ・守護神)の投手'},{r:'RP',n:3,l:'中継ぎ(2セット目)',d:'先発以外(中継ぎ・守護神)の投手'},{r:'CL',n:1,l:'守護神',d:'先発以外(中継ぎ・守護神)の投手'}];
+const pcand=(t,r)=>{const L=PT.filter(p=>p.t==t);return r=='SP'?L.filter(p=>p.gs>=1):L.filter(p=>p.g>0&&p.gs/p.g<.5)};
 const PSO={ip:['投球回',p=>p.ip],era:['防御率',p=>-p.era],g:['登板',p=>p.g],gs:['先発',p=>p.gs],sv:['S',p=>p.sv],hd:['H',p=>p.hd],k:['奪三振',p=>p.k]};
 const pstat=p=>`防御率 <b>${p.era.toFixed(2)}</b> ・ 登板 ${p.g}(先発${p.gs}) ・ ${p.w}勝${p.l}敗 ・ S ${p.sv} ・ H ${p.hd}<br><span class="s">投球回 ${p.ip.toFixed(1)} ・ 奪三振 ${p.k} ・ 与四球 ${p.bb}${p.h9!==null?' ・ WHIP '+(p.h9/9+p.bb/Math.max(p.ip,1)).toFixed(2):''}${p.o25?`<br>2025+2026合算 投球回 ${(p.ip+p.o25/3).toFixed(1)}`:''}</span>`;
 function startPit(teams){beginPit(teams||sh(Object.keys(TM)).slice(0,4));if(S.m==3)Net.send({k:'pstart',teams:S.pt.teams})}
